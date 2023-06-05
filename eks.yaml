@@ -1,0 +1,14 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: lattice-demo
+  region: us-west-2
+
+iam:
+  withOIDC: true
+
+managedNodeGroups:
+  - name: mng-1
+    instanceType: m6a.large
+    desiredCapacity: 2

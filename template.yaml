@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  lattice-demo-app
+
+  Sample SAM Template for lattice-demo-app
+
+Parameters:
+  SubnetIdsParameter:
+    Type: List<String>
+    Description: VPC Private Subnet IDs to access the Lattice Service Network
+  EKSSGParameter:
+    Type: String
+    Description: Enter the EKS Security Group id
+
+Globals:
+  Function:
+    Timeout: 15
+
+Resources:
+  LatticeDemoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lattice_client/
+      Handler: app.lambda_handler
+      Runtime: python3.10
+      Policies:
+        - VPCAccessPolicy: {}
+      VpcConfig:
+        SecurityGroupIds:
+          - Ref: EKSSGParameter
+        SubnetIds:
+          Ref: SubnetIdsParameter
+      Events:
+        LatticeDemo:
+          Type: Api
+          Properties:
+            Path: /lattice-demo/{proxy+}
+            Method: get
+            Auth:
+              ResourcePolicy:
+                CustomStatements: [{
+                    Effect: 'Allow',
+                    Action: 'execute-api:Invoke', 
+                    Resource: ['execute-api:/*/*/*'],
+                    Principal: '*'
+                  }]
+
+Outputs:
+  LatticeDemoApi:
+    Description: "API Gateway endpoint URL for Prod stage for Lattice Demo function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/lattice-demo/"
+  LatticeDemoFunction:
+    Description: "Lattice Demo Lambda Function ARN"
+    Value: !GetAtt LatticeDemoFunction.Arn
+  LatticeDemoFunctionIamRole:
+    Description: "Implicit IAM Role created for Lattice Demo function"
+    Value: !GetAtt LatticeDemoFunctionRole.Arn
