@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS VPC Lattice EKS Lambda Blog
+Parameters:
+  VPCCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+  VPCSubnet1CIDR:
+    Type: String
+    Default: 10.0.0.0/24
+  VPCSubnet2CIDR:
+    Type: String
+    Default: 10.0.1.0/24
+  VPCSubnet3CIDR:
+    Type: String
+    Default: 10.0.2.0/24
+  LatticeSNArn:
+    Type: String
+Resources:
+  LatticeDemoVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Lattice Demo VPC
+  LatticeDemoPrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref LatticeDemoVPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Ref VPCSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Lattice Demo Private Subnet1
+  LatticeDemoPrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref LatticeDemoVPC
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Ref VPCSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Lattice Demo Private Subnet2
+  LatticeDemoPrivateSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref LatticeDemoVPC
+      AvailabilityZone: !Select 
+        - 2
+        - !GetAZs ''
+      CidrBlock: !Ref VPCSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Lattice Demo Private Subnet3
+  VPCSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: lambda-sg
+      GroupDescription: Allow all for workshop
+      VpcId: !Ref LatticeDemoVPC
+  LatticeSNAssociation:
+    Type: 'AWS::VpcLattice::ServiceNetworkVpcAssociation'
+    Properties:
+      ServiceNetworkIdentifier: !Ref LatticeSNArn
+      VpcIdentifier: !Ref LatticeDemoVPC
+Outputs:
+  LambdaVPC:
+    Description: Lattice Demo VPC
+    Value: !Ref LatticeDemoVPC
+
+  LatticeDemoPrivateSubnet1:
+    Description: Lattice Demo Private Subnet1
+    Value: !Ref LatticeDemoPrivateSubnet1
+
+  LatticeDemoPrivateSubnet2:
+    Description: Lattice Demo Private Subnet2
+    Value: !Ref LatticeDemoPrivateSubnet2
+
+  LatticeDemoPrivateSubnet3:
+    Description: Lattice Demo Private Subnet3
+    Value: !Ref LatticeDemoPrivateSubnet3
+
+  LambdaSecurityGroup:
+    Description: Lattice Demo Security Group
+    Value: !Ref VPCSecurityGroup

@@ -1,9 +1,20 @@
 # lattice-eks-lambda-blog
 VPC Lattice Integration with Amazon EKS &amp; AWS Lambda
 
+## Whiteboarding
+
+![White boarding](images/whiteboard.png)
+
+## Architecture
+
+![Solution Architecture](images/lattice-architecture.png)
+
 ## Pre-requisites
 
-* AWS Account
+* AWS Account(s)
+   * Central Networking Account
+   * EKS Platform Team Account
+   * Lambda Team Account
 
 * [eksctl](https://eksctl.io/) – a simple CLI tool for creating and managing Amazon EKS clusters.
 
@@ -188,15 +199,48 @@ aws route53 change-resource-record-sets --hosted-zone-id $HZ_ID --region $AWS_RE
 
 ### Setup Lambda Client
 
-* Login to your `EKS Platform AWS Account`
+* Login to your `Lambda Team's AWS Account`
+* Create a VPC and associate Lattice Service Network
+
+```shell
+LATTICE_ARN=$(aws vpc-lattice list-service-networks --region $AWS_REGION --output text --query 'items[?name==`lattice-demo`].arn')
+aws cloudformation deploy --template-file file://vpc.yaml --stack-name lattice-lambda-vpc --parameter-overrides LatticeSNArn=$LATTICE_ARN --region $AWS_REGION
+```
+
+* Retrieve the Lambda VPC Details
+
+```shell
+LAMBDA_SG=$(aws cloudformation describe-stacks --region $AWS_REGION --stack-name lattice-lambda-blog --output text --query 'Stacks[0].Outputs[?OutputKey==`LambdaSecurityGroup`].OutputValue')
+PRIVATE_SUBNET1=$(aws cloudformation describe-stacks --region $AWS_REGION --stack-name lattice-lambda-blog --output text --query 'Stacks[0].Outputs[?OutputKey==`LatticeDemoPrivateSubnet1`].OutputValue')
+PRIVATE_SUBNET2=$(aws cloudformation describe-stacks --region $AWS_REGION --stack-name lattice-lambda-blog --output text --query 'Stacks[0].Outputs[?OutputKey==`LatticeDemoPrivateSubnet2`].OutputValue')
+PRIVATE_SUBNET3=$(aws cloudformation describe-stacks --region $AWS_REGION --stack-name lattice-lambda-blog --output text --query 'Stacks[0].Outputs[?OutputKey==`LatticeDemoPrivateSubnet3`].OutputValue')
+LAMBDA_VPC=$(aws cloudformation describe-stacks --region $AWS_REGION --stack-name lattice-lambda-blog --output text --query 'Stacks[0].Outputs[?OutputKey==`LambdaVPC`].OutputValue')
+```
+
+* Login to `EKS Platform AWS Account` and create VPC Association Authorization for the Private Hosted Zone - `lattice.demo`
+
+```shell
+aws route53 create-vpc-association-authorization --hosted-zone-id $HZ_ID --region $AWS_REGION --vpc VPCRegion=$AWS_REGION,VPCId=$LAMBDA_VPC
+```
+
+* Login to `Lambda AWS Account` and associate the Private Hosted Zone to Lambda VPC
+
+```shell
+aws route53 associate-vpc-with-hosted-zone --region $AWS_REGION --hosted-zone-id $HZ_ID --vpc VPCRegion=$AWS_REGION,VPCId=$LAMBDA_VPC_ID
+```
+
 * Provision an Amazon API Gateway and AWS Lambda resources by running the below command:
 
 ```shell
-EKS_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
-EKS_VPC_ID=$(aws ec2 describe-vpcs --region "$AWS_REGION"  --filters 'Name=tag:Name,Values="eksctl-lattice-demo-cluster/VPC"' | jq -r '.Vpcs[].VpcId')
-PRIVATE_SUBNETS_LIST=($(aws ec2 describe-subnets --filters Name=vpc-id,Values=$EKS_VPC_ID --query 'Subnets[?MapPublicIpOnLaunch==`false`].SubnetId' --output text))
+# EKS_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
+# EKS_VPC_ID=$(aws ec2 describe-vpcs --region "$AWS_REGION"  --filters 'Name=tag:Name,Values="eksctl-lattice-demo-cluster/VPC"' | jq -r '.Vpcs[].VpcId')
+# PRIVATE_SUBNETS_LIST=($(aws ec2 describe-subnets --filters Name=vpc-id,Values=$EKS_VPC_ID --query 'Subnets[?MapPublicIpOnLaunch==`false`].SubnetId' --output text))
 
-sam deploy --parameter-overrides SubnetIdsParameter="${PRIVATE_SUBNETS_LIST[1]},${PRIVATE_SUBNETS_LIST[2]},${PRIVATE_SUBNETS_LIST[3]}" EKSSGParameter="${EKS_SG}"
+# sam deploy --parameter-overrides SubnetIdsParameter="${PRIVATE_SUBNETS_LIST[1]},${PRIVATE_SUBNETS_LIST[2]},${PRIVATE_SUBNETS_LIST[3]}" EKSSGParameter="${EKS_SG}"
+
+sam build
+
+sam deploy --parameter-overrides SubnetIdsParameter="${PRIVATE_SUBNET1},${PRIVATE_SUBNET2},${PRIVATE_SUBNET3}" SGParameter="${LAMBDA_SG}"
 ```
 
 ### Test the connectivity

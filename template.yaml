@@ -9,9 +9,9 @@ Parameters:
   SubnetIdsParameter:
     Type: List<String>
     Description: VPC Private Subnet IDs to access the Lattice Service Network
-  EKSSGParameter:
+  SGParameter:
     Type: String
-    Description: Enter the EKS Security Group id
+    Description: Enter the Lambda Security Group id
 
 Globals:
   Function:
@@ -28,7 +28,7 @@ Resources:
         - VPCAccessPolicy: {}
       VpcConfig:
         SecurityGroupIds:
-          - Ref: EKSSGParameter
+          - Ref: SGParameter
         SubnetIds:
           Ref: SubnetIdsParameter
       Events:
